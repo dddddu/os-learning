@@ -52,8 +52,54 @@ int unlink(char *file)  |取消一个文件
 ### exit
 >一般 exit(0)代表成功， exit(1)代表程序遇到意外中止。
 
+### 为什么fork()不和exec绑定?
+>这是因为系统内核做的优化，因为copy-on-write机制，实际上fork()之后并不会立马真的为子进程分配物理空间，指挥分配虚拟空间，只有当一方用到修改变量的时候才会去给子进程分配，这样可以达到省内存的目的。
 
 ## 1.2 I/O和文件描述符
 >&emsp;&emsp;文件描述符是一个小的整数，可以看作一个文件对象被内核管理。文件描述符可以通过<b>打开一个文件、目录、设备、创建管道或者从已经有的文件描述符复制而来</b>。为了方便可以把文件描述符抽象看作一个 <b>文件</b>。  
 &emsp;&emsp;上述几个创建文件描述符的方法都抽象实现了接口，使他们使用起来像字节流。
 &emsp;&emsp;每一个进程都有自己独立的文件描述符空间，全部0开始。一般情况下 0代表标准输入，1代表标准输出， 2代表标准错误。shell保证始终至少有三个文件描述符处于打开状态，代表着控制台的默认文件描述符。
+ &emsp; &emsp;两个文件描述符会共享一个缓冲区，如果其中一个由另外一个dup而来或者fork()而来。否则即使两个文件描述符指向的是同一个文件也不会共享。
+ ```bash
+ ls existing-file non-existing-file > tmp1 2>&1  
+ 把这条命令给文件描述符2  2由1复制而来。 existing-file的信息和 non-existing-file的错误信息都会再tmp1中显示。 xv6不支持IO重定向 但是可以通过这个方式来达到想要的效果
+ ```
+
+## 1.3 pipes
+>pipe是进程之间通信的方式。
+
+## 1.4 File system
+&emsp;&emsp;xv6文件系统提供 数据文件，包括未解码的字节型数组和目录。目录包含指向其他目录和数据文件的映射。目录可以看作一棵树，从root目录开始。
+&emsp;&emsp;Mknod 会创建一个特殊的文件，这个文件指向一个设备。和设备文件有关系的有两个参数--主要和次要设备文件，这两个参数会唯一的假别一个内核设备。当一个进程打开了一个设备文件之后，内核会将<b>read和write</b>系统调用传给内核设备接口而不是传给文件系统。
+&emsp;&emsp;一个文件的名字和本身不同(翻译存疑 A file’s name is distinct from the file)；the same底层文件成为一个inode,这个inode可以由很多名称，这些名称成为links.每一个link对应一个条目，这些条目存放在一个目录中。条目包括文件名、到inode的映射。每个Inode都有一个 <i>metadata</i>描述一个文件，包括文件的类型（普通文件还是dir还是device）,文件长度， 文件在磁盘中的content, 这个文件的links数量。
+&emsp;&emsp;fstat系统调用会检索一个文件描述符指向的inode的信息，并把这些信息放在一个 struct stat中。
+```c
+#define T_DIR 1 // Directory
+#define T_FILE 2 // File
+#define T_DEVICE 3 // Device
+struct stat {
+    int dev; // File system’s disk device
+    uint ino; // Inode number
+    short type; // Type of file
+    short nlink; // Number of links to file
+    uint64 size; // Size of file in bytes
+};
+```
+&emsp;&emsp;<i>link</i>系统调用对一个已经存在的文件起一个别名，这个别名和源文件一样指向同一个inode.
+```c
+oepn("a", O_CREATE|O_WRONLY);
+link("a", "b");
+```
+&emsp;&emsp;进行上述操作后，读写a和读写b本质上是一样的，对两个文件调用fstat返回的值也是一样的。
+
+&emsp;&emsp;<i>unlink</i>系统调用会从文件系统取消一个文件的别名。当一个inode的nlink别称0的时候并且没有文件描述指向它的时候这inode的空间就会别释放。
+```c
+unlink("a");
+```
+&emsp;&emsp;
+```c
+fd = open(fd = open("/tmp/xyz", O_CREATE|O_RDWR);
+unlink("/tmp/xyz");)
+```
+&emsp;&emsp;上述方式可以创建一个临时文件，当进程结束或者fd关闭之后就会被释放
+
