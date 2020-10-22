@@ -103,3 +103,9 @@ unlink("/tmp/xyz");)
 ```
 &emsp;&emsp;上述方式可以创建一个临时文件，当进程结束或者fd关闭之后就会被释放
 
+## 2.1 普通介绍 掠过
+
+## 2.2 User mode supervisor mode, and system calls  
+&emsp;&emsp;我们希望应用和os之间有很好的独立性，防止应用出现问题时导致os崩溃。os应该有清理失败应用和继续运行其他程序的能力，为了达到这个目标，应用程序应该不能修改(甚至读取)os的数据,并且应用不能读取别的应用的内存空间。
+&emsp;&emsp;CPU为硬件提供了很好的隔离性。RISC-V有CPU可以执行的模式:machine mode, suppervisor mode, user mode。Machine mode 可以修改计算机配置。Xv6会在machine mode下执行部分代码然后转到supervisor mode.
+&emsp;&emsp;在supervisor mode下 CPU可以执行<i>privileged instructions</i>.exp: 准许和取消终端，读写文件地址,etc.如果一个app在user mode尝试去执行一个 priveileged instruction, CPU会拒绝执行。当一个软件在suervisor mode执行时可以执行 privileged instructions并且可以运行在 kernel space.运行在kernel space (or in suppervisor mode)被称为 <i>kernel</i>
