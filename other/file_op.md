@@ -2,7 +2,7 @@
 
 >
 >#inlcude<unistd.h>
-func: acess(const char * pathname, int mode)
+func: access(const char * pathname, int mode)
 pathname: 要判断的文件或者目录名
 mode : 要检测的操作模式
 return: 成功返回0 否则返回1
